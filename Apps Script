@@ -1,0 +1,326 @@
+function AddItem()
+{
+  
+  //DEFINE ALL ACTIVE SHEETS
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  //DEFINE MENU SHEET          
+  var poSheet = ss.getSheetByName("POS");
+  var itemSheet = ss.getSheetByName("ITEMS");
+  
+  //GET NEXT ROW OF PO SHEET
+  var lastrowPO = poSheet.getLastRow() + 1;
+  
+  //GET LAST ROW OF ITEM SHEET
+  var lastrowItem = itemSheet.getLastRow();
+  
+  // GET VALUE OF ITEM AND QUANTITY
+  var itemnm = poSheet.getRange('B13').getValue();
+  var unitamt = poSheet.getRange('B14').getValue();
+  var quantity = poSheet.getRange('B15').getValue();
+  var unitPrice = poSheet.getRange('B16').getValue();
+  
+  // GET UNIT PRICE FROM ITEM SHEET
+  for(var i = 2; i <= lastrowItem; i++)
+  {
+    if(itemnm == itemSheet.getRange(i, 2).getValue())
+    {
+      var itemno = itemSheet.getRange(i, 1).getValue();
+      var description = itemSheet.getRange(i, 2).getValue();
+      //var unitCost = itemSheet.getRange(i, 3).getValue();
+    }
+  }
+  
+  // POPULATE PO SHEET
+  poSheet.getRange(lastrowPO, 1).setValue(itemno);
+  poSheet.getRange(lastrowPO, 2).setValue(description);
+  poSheet.getRange(lastrowPO, 3).setValue(unitamt);
+  poSheet.getRange(lastrowPO, 4).setValue(quantity).setNumberFormat("#,###");
+  poSheet.getRange(lastrowPO, 5).setValue(unitPrice).setNumberFormat("#,###");
+  poSheet.getRange(lastrowPO, 6).setValue(quantity * unitPrice).setNumberFormat("#,###");
+}
+
+
+function createPO()
+{
+  //DEFINE ALL ACTIVE SHEETS
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  //DEFINE MENU SHEET          
+  var poSheet = ss.getSheetByName("POS");
+  var vendorSheet = ss.getSheetByName("VENDORS");
+  var settingSheet = ss.getSheetByName("SETTINGS");
+  var printSheet = ss.getSheetByName("PRINT PO");
+  
+  //GET VALUES
+  var supplier = poSheet.getRange(6,2).getValue();
+  //var invoice_number = poSheet.getRange(7,2).getValue();
+  var ship_date = poSheet.getRange(8,2).getValue();
+  //var ship_via = poSheet.getRange(9,2).getValue();
+  var terms = poSheet.getRange(12,2).getValue();
+  //var ship_and_handle = poSheet.getRange(11,2).getValue();
+  var po_number = settingSheet.getRange(1,2).getValue();
+  //var next_po_number = po_number + 1;
+  //settingSheet.getRange(1,2).setValue(next_po_number);
+  
+  // GET VENDOR LAST ROW
+  var lastrowVendor = vendorSheet.getLastRow();
+  
+  var companyName, streetAddress, city, state, phone_number;
+  // GET CUSTOMER FIELDS
+  for(var i = 2; i <= lastrowVendor; i++)
+  {
+    if(supplier == vendorSheet.getRange(i, 1).getValue())
+    {
+      companyName = vendorSheet.getRange(i,2).getValue();
+      streetAddress = vendorSheet.getRange(i,3).getValue();
+      city = vendorSheet.getRange(i,4).getValue();
+      state = vendorSheet.getRange(i,5).getValue();
+      phone_number = vendorSheet.getRange(i,6).getValue();
+    }
+  }
+  
+  // SET PO DATE
+  var currentDate = new Date();
+  var currentMonth = currentDate.getMonth()+1;
+  var currentYear = currentDate.getFullYear();
+  var date = currentMonth.toString() + '/' + currentDate.getDate().toString() + '/' + currentYear.toString();
+
+  // GET LAST ROW OF PRINT SHEET
+  var lastrowPrint = printSheet.getLastRow();
+  
+  // FIND HOW MANY ITEMS ROWS TO DELETE
+  var x_count = 0
+  for(var v = 19; v <= lastrowPrint; v++)
+  {
+    
+    if(printSheet.getRange(v, 6).getValue() != 'Subtotal Rs.')
+    {  
+      x_count++;
+    }
+    else
+    {
+      break;
+    }
+  }
+  
+  var lastrowPrint = 19 + x_count;
+  
+  //Logger.log(lastrowPrint);
+  
+  // DELETE ITEMS ROWS FROM PO
+  if((lastrowPrint - 19) != 0)
+  {
+    printSheet.deleteRows(19, lastrowPrint - 19);
+  }  
+  
+  // SET VALUES ON PO  SUPPLIER NAME
+  printSheet.getRange('B12').setValue(companyName).setFontFamily('Roboto').setFontSize(10).setFontWeight("bold").setFontColor("#000000");
+  printSheet.getRange('B13').setValue(streetAddress).setFontFamily('Roboto').setFontSize(10).setFontColor("#000000");
+  printSheet.getRange('B14').setValue(city +', ' + state ).setFontFamily('Roboto').setFontSize(10).setFontColor("#000000");
+  printSheet.getRange('B15').setValue(phone_number).setFontFamily('Roboto').setFontSize(10).setFontColor("#000000");
+  //printSheet.getRange('B23').setValue(email).setFontFamily('Roboto').setFontSize(10).setFontColor("#000000");
+  
+  //SET DATES AND PO NUMBER
+  printSheet.getRange('G6').setValue(date).setFontFamily('Roboto').setFontSize(10).setFontColor("#000000"); 
+  printSheet.getRange('G4').setValue(po_number).setFontFamily('Roboto').setNumberFormat("00###").setFontSize(12).setFontColor("#000000");
+  printSheet.getRange('G8').setValue(ship_date).setFontFamily('Roboto').setFontSize(10).setFontColor("#000000");
+  printSheet.getRange('G9').setValue(terms).setFontFamily('Roboto').setFontSize(10).setFontColor("#000000").setHorizontalAlignment("left");
+  
+  
+  // GET LAST ROW OF PO SHEET
+  var lastrowPO = poSheet.getLastRow();
+
+  var z = 0;
+  var subTotal = 0;
+  for(var y = 18; y <= lastrowPO; y++)
+  {
+    //INSERT ROW ON PRINT SHEET
+    printSheet.insertRowsAfter(18 + z, 1);
+    
+    //GET ITEM VALUES FROM PO SHEET
+    var part = poSheet.getRange(y, 1).getValue();
+    var description = poSheet.getRange(y, 2).getValue();
+    var uom = poSheet.getRange(y, 3).getValue();
+    var qty = poSheet.getRange(y, 4).getValue();
+    var unitpr = poSheet.getRange(y, 5).getValue();
+    var amount = poSheet.getRange(y, 6).getValue();
+    
+    // PRICE TOTALS
+    var totalPrice = amount;
+    subTotal = subTotal + totalPrice;
+    
+    // POPULATE TOTALS ON PRINT SHEET
+    printSheet.getRange(18 + z + 1, 2).setValue(part).setFontFamily('Roboto').setNumberFormat("0##").setFontSize(11).setFontColor("black");
+    printSheet.getRange(18 + z + 1, 3).setValue(description).setFontFamily('Roboto').setFontSize(11).setFontColor("black").setHorizontalAlignment("left");
+    printSheet.getRange(18 + z + 1, 6).setValue(uom).setFontFamily('Roboto').setFontSize(11).setFontColor("black");
+    printSheet.getRange(18 + z + 1, 7).setValue(qty).setFontFamily('Roboto').setFontSize(11).setFontColor("black").setHorizontalAlignment("right");
+    printSheet.getRange(18 + z + 1, 8).setValue(unitpr).setFontFamily('Roboto').setFontSize(10).setFontColor("black").setHorizontalAlignment("right");
+    printSheet.getRange(18 + z + 1, 9).setValue(amount).setFontFamily('Roboto').setFontSize(10).setFontColor("black").setHorizontalAlignment("right");
+    
+    z++;
+  }
+  
+  // SET TOTAL
+  printSheet.getRange(18 + z + 1, 9)
+  .setValue(subTotal)
+  .setNumberFormat("#,###.00")
+  .setFontFamily('Roboto')
+  .setFontSize(10)
+  .setFontColor("black")
+  .setHorizontalAlignment("right");
+  
+  //var totalPO = subTotal;
+  
+  // CALL PO LOG
+  //POLog(po_number, date, supplier,part, description, ship_date, terms, unitpr, qty, amount)
+
+}
+
+function POLog()
+{
+  //DEFINE ALL ACTIVE SHEETS
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  //DEFINE MENU SHEET          
+  var poSheet = ss.getSheetByName("POS");
+  var vendorSheet = ss.getSheetByName("VENDORS");
+  var settingSheet = ss.getSheetByName("SETTINGS");
+  var logPo = ss.getSheetByName("PO LOG");
+  
+  //GET VALUES
+  var supplier = poSheet.getRange(6,2).getValue();
+  var ship_date = poSheet.getRange(8,2).getValue();
+  var terms = poSheet.getRange(12,2).getValue();
+  var po_number = settingSheet.getRange(1,2).getValue();
+  var next_po_number = po_number + 1;
+  settingSheet.getRange(1,2).setValue(next_po_number);
+  
+  // SET PO DATE
+  var currentDate = new Date();
+  var currentMonth = currentDate.getMonth()+1;
+  var currentYear = currentDate.getFullYear();
+  var date = currentMonth.toString() + '/' + currentDate.getDate().toString() + '/' + currentYear.toString();
+
+  // GET LAST ROW OF POLog SHEET
+  var lastrowPolog = logPo.getLastRow();
+  
+  // GET LAST ROW OF PO SHEET
+  var lastrowPO = poSheet.getLastRow();
+
+  var z = 0;
+  //var subTotal = 0;
+  for(var y = 18; y <= lastrowPO; y++)
+  {
+    //INSERT ROW ON PRINT SHEET
+    logPo.insertRowsAfter(lastrowPolog + z, 1);
+    
+    //GET ITEM VALUES FROM PO SHEET
+    var part = poSheet.getRange(y, 1).getValue();
+    var description = poSheet.getRange(y, 2).getValue();
+    //var uom = poSheet.getRange(y, 3).getValue();
+    var qty = poSheet.getRange(y, 4).getValue();
+    var unitpr = poSheet.getRange(y, 5).getValue();
+    var amount = poSheet.getRange(y, 6).getValue();
+
+  //SET Values in PO LOG
+    logPo.getRange(lastrowPolog + z + 1, 1).setValue(po_number).setNumberFormat("00###");
+    logPo.getRange(lastrowPolog + z + 1, 2).setValue(date); 
+    logPo.getRange(lastrowPolog + z + 1, 3).setValue(supplier);
+    logPo.getRange(lastrowPolog + z + 1, 4).setValue(part).setNumberFormat("00##");
+    logPo.getRange(lastrowPolog + z + 1, 5).setValue(description);
+    logPo.getRange(lastrowPolog + z + 1, 6).setValue(ship_date);
+    logPo.getRange(lastrowPolog + z + 1, 7).setValue(terms);
+    logPo.getRange(lastrowPolog + z + 1, 8).setValue(unitpr);
+    logPo.getRange(lastrowPolog + z + 1, 9).setValue(qty);
+    logPo.getRange(lastrowPolog + z + 1, 10).setValue(amount);
+    
+    z++;
+  }
+  
+  // SET TOTAL
+  //logPo.getRange(18 + z + 1, 9)
+  //.setValue(subTotal)
+  //.setNumberFormat("#,###.00")
+  //.setFontFamily('Roboto')
+  //.setFontSize(10)
+  //.setFontColor("black")
+  //.setHorizontalAlignment("right");
+  
+  //var totalPO = subTotal;
+  
+  // CALL PO LOG
+  //POLog(po_number, date, supplier,part, description, ship_date, terms, unitpr, qty, amount)
+
+}
+
+
+/** 
+function POLog(po_number, date, supplier,part, description, ship_date, terms, unitpr, qty, amount)
+
+{
+  
+   //DEFINE ALL ACTIVE SHEETS
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  //DEFINE PO LOG SHEET          
+  var POLogSheet = ss.getSheetByName("PO LOG"); 
+  
+  //GET LAST ROW OF PO LOG SHEET
+  var nextRowPO = POLogSheet.getLastRow() + 1;
+
+  //POPULATE INVOICE LOG
+  POLogSheet.getRange(nextRowPO, 1).setValue(po_number);
+  POLogSheet.getRange(nextRowPO, 2).setValue(date);
+  POLogSheet.getRange(nextRowPO, 3).setValue(supplier);
+  POLogSheet.getRange(nextRowPO, 4).setValue(part);
+  POLogSheet.getRange(nextRowPO, 5).setValue(description);
+  POLogSheet.getRange(nextRowPO, 6).setValue(ship_date);
+  POLogSheet.getRange(nextRowPO, 7).setValue(terms);
+  POLogSheet.getRange(nextRowPO, 8).setValue(unitpr);
+  POLogSheet.getRange(nextRowPO, 9).setValue(qty);
+  POLogSheet.getRange(nextRowPO, 10).setValue(amount);
+  
+}
+
+*/
+
+function combine() {
+  createPO();//you can change the order if required and add as many as you wish
+  POLog();
+}
+
+
+
+
+function ClearInvoice()
+{
+    //DEFINE ALL ACTIVE SHEETS
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  //DEFINE PO SHEET          
+  var poSheet = ss.getSheetByName("POS");
+  
+  
+  //SET VALUES TO NOTHING
+  poSheet.getRange(6,2).setValue("");
+  //poSheet.getRange(7,2).setValue("");
+  poSheet.getRange(8,2).setValue("");  
+  //poSheet.getRange(9,2).setValue("");  
+  //poSheet.getRange(10,2).setValue("");
+  poSheet.getRange(12,2).setValue("");  
+  poSheet.getRange(13,2).setValue("");  
+  poSheet.getRange(14,2).setValue("");
+  poSheet.getRange(15,2).setValue("");
+  poSheet.getRange(16,2).setValue("");
+  //poSheet.getRange(6,7).setValue("");
+  //poSheet.getRange(7,7).setValue("");
+  //poSheet.getRange(8,7).setValue("");
+  //poSheet.getRange(9,7).setValue("");
+  //poSheet.getRange(10,7).setValue("");
+  
+  //CLEAR ITEMS
+  poSheet.getRange("A18:F1000").clear();
+
+}
+
